@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -31,15 +31,17 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Generate tags
+    - name: Generate lowercase tags
       id: meta
       run: |
+        IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+        echo "image_name_lower=$IMAGE_NAME_LOWER" >> $GITHUB_ENV
+
         if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-          echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_OUTPUT
+          echo "tags=${{ env.REGISTRY }}/$IMAGE_NAME_LOWER:latest" >> $GITHUB_OUTPUT
         else
-          # PR number 또는 branch name에서 슬래시 제거
           REF_NAME=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
-          echo "tags=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${REF_NAME}" >> $GITHUB_OUTPUT
+          echo "tags=${{ env.REGISTRY }}/$IMAGE_NAME_LOWER:${REF_NAME}" >> $GITHUB_OUTPUT
         fi
 
     - name: Build and push Docker image
@@ -49,7 +51,6 @@ jobs:
         platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels || '' }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -57,7 +58,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -100,8 +101,9 @@ jobs:
       run: |
         kubectl get pods -n python-demo
         kubectl get services -n python-demo
-        
+
     - name: Get Service URL (minikube)
       run: |
         echo "Service URL:"
         echo "Run 'minikube service python-demo-app-python-demo-chart -n python-demo --url' to get the service URL"
+
