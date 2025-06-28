@@ -39,7 +39,7 @@ jobs:
         tags: |
           type=ref,event=branch
           type=ref,event=pr
-          type=sha,prefix={{branch}}-
+          type=sha,prefix={{branch}}.
           type=raw,value=latest,enable={{is_default_branch}}
 
     - name: Build and push Docker image
@@ -86,7 +86,7 @@ jobs:
     - name: Update values.yaml for GitHub Container Registry
       run: |
         sed -i 's|repository: python-demo|repository: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}|g' python-demo-chart/values.yaml
-        sed -i 's|tag: "latest"|tag: "main-${{ github.sha }}"|g' python-demo-chart/values.yaml
+        sed -i 's|tag: "latest"|tag: "main.${{ github.sha }}"|g' python-demo-chart/values.yaml
 
     - name: Helm Deploy
       run: |
