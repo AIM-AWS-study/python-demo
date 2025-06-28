@@ -6,7 +6,7 @@ app = Flask(__name__)
 @app.route('/')
 def hello():
     return jsonify({
-        'message': 'This is AWS Study\'s perfect project',
+        'message': 'This is AWS Study\'s perfect project!!!',
         'version': '1.0.0',
         'environment': os.getenv('ENVIRONMENT', 'development')
     })
