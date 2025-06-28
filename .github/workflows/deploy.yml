@@ -78,13 +78,21 @@ jobs:
         echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
         chmod 600 ~/.kube/config
 
+    - name: Test kubectl connection
+      run: |
+        kubectl cluster-info
+        kubectl get nodes
+
+    - name: Update values.yaml for GitHub Container Registry
+      run: |
+        sed -i 's|repository: python-demo|repository: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}|g' python-demo-chart/values.yaml
+        sed -i 's|tag: "latest"|tag: "main-${{ github.sha }}"|g' python-demo-chart/values.yaml
+
     - name: Helm Deploy
       run: |
         helm upgrade --install python-demo-app ./python-demo-chart \
           --namespace python-demo \
           --create-namespace \
-          --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
-          --set image.tag=main-${{ github.sha }} \
           --wait \
           --timeout=300s
 
@@ -92,3 +100,8 @@ jobs:
       run: |
         kubectl get pods -n python-demo
         kubectl get services -n python-demo
+        
+    - name: Get Service URL (minikube)
+      run: |
+        echo "Service URL:"
+        echo "Run 'minikube service python-demo-app-python-demo-chart -n python-demo --url' to get the service URL"
