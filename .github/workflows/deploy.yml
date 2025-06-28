@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-
+    
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -31,17 +31,21 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Generate lowercase tags
+    - name: Generate commit-based tags
       id: meta
       run: |
         IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+        COMMIT_SHA="${{ github.sha }}"
+        SHORT_SHA=${COMMIT_SHA:0:7}
+        
         echo "image_name_lower=$IMAGE_NAME_LOWER" >> $GITHUB_ENV
-
+        echo "commit_tag=$SHORT_SHA" >> $GITHUB_ENV
+        
         if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-          echo "tags=${{ env.REGISTRY }}/$IMAGE_NAME_LOWER:latest" >> $GITHUB_OUTPUT
+          echo "tags=${{ env.REGISTRY }}/$IMAGE_NAME_LOWER:latest,${{ env.REGISTRY }}/$IMAGE_NAME_LOWER:$SHORT_SHA" >> $GITHUB_OUTPUT
         else
           REF_NAME=$(echo "${{ github.ref_name }}" | sed 's/\//-/g')
-          echo "tags=${{ env.REGISTRY }}/$IMAGE_NAME_LOWER:${REF_NAME}" >> $GITHUB_OUTPUT
+          echo "tags=${{ env.REGISTRY }}/$IMAGE_NAME_LOWER:$REF_NAME-$SHORT_SHA" >> $GITHUB_OUTPUT
         fi
 
     - name: Build and push Docker image
@@ -58,7 +62,7 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-
+    
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -84,10 +88,23 @@ jobs:
         kubectl cluster-info
         kubectl get nodes
 
+    - name: Generate commit-based image info
+      run: |
+        IMAGE_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+        COMMIT_SHA="${{ github.sha }}"
+        SHORT_SHA=${COMMIT_SHA:0:7}
+        
+        echo "Using image: ${{ env.REGISTRY }}/$IMAGE_NAME_LOWER:$SHORT_SHA"
+        echo "IMAGE_REPO=${{ env.REGISTRY }}/$IMAGE_NAME_LOWER" >> $GITHUB_ENV
+        echo "IMAGE_TAG=$SHORT_SHA" >> $GITHUB_ENV
+
     - name: Update values.yaml for GitHub Container Registry
       run: |
-        sed -i 's|repository: python-demo|repository: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}|g' python-demo-chart/values.yaml
-        sed -i 's|tag: "latest"|tag: "latest"|g' python-demo-chart/values.yaml
+        sed -i "s|repository: python-demo|repository: ${{ env.IMAGE_REPO }}|g" python-demo-chart/values.yaml
+        sed -i "s|tag: \"latest\"|tag: \"${{ env.IMAGE_TAG }}\"|g" python-demo-chart/values.yaml
+        
+        echo "Updated values.yaml:"
+        grep -A 5 "image:" python-demo-chart/values.yaml
 
     - name: Helm Deploy
       run: |
@@ -101,9 +118,8 @@ jobs:
       run: |
         kubectl get pods -n python-demo
         kubectl get services -n python-demo
-
+        
     - name: Get Service URL (minikube)
       run: |
         echo "Service URL:"
         echo "Run 'minikube service python-demo-app-python-demo-chart -n python-demo --url' to get the service URL"
-
